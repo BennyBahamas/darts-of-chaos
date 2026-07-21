@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "darts-of-chaos-party",
+  "main": "party/server.ts",
+  "compatibility_date": "2026-07-21",
+  "durable_objects": {
+    "bindings": [{ "name": "DartsRoom", "class_name": "DartsRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DartsRoom"] }]
+}
