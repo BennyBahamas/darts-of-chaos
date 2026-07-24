@@ -733,21 +733,29 @@ export function assignDrink(state: GameState, eventId: string, drinkerId: string
   const giverName = api.playerName(giverId);
   const drinkerName = api.playerName(drinkerId);
 
-  if (drinkerId === giverId) {
-    api.addEvent({ type: "info", title: "🍺 DRINK ASSIGNED", lines: [`${giverName} drinks 1 themselves.`] });
-    api.log(`${giverName} drinks 1 themselves (Give a Drink tile).`);
-  } else {
+  if (drinkerId !== giverId) {
     api.creditNemesis(giverId, drinkerId, { drinks: 1, directAttack: true });
-    api.addEvent({
-      type: "info",
-      title: "🍺 DRINK ASSIGNED",
-      lines: [`${giverName} gives ${drinkerName} 1 drink!`],
-    });
-    api.log(`${giverName} gave ${drinkerName} 1 drink (Give a Drink tile).`);
   }
+  api.log(
+    drinkerId === giverId
+      ? `${giverName} drinks 1 themselves (Give a Drink tile).`
+      : `${giverName} gave ${drinkerName} 1 drink (Give a Drink tile).`
+  );
 
+  evt.assign.given = evt.assign.given ?? {};
+  evt.assign.given[drinkerId] = (evt.assign.given[drinkerId] ?? 0) + 1;
   evt.assign.amount -= 1;
+
+  // Only pop ONE confirmation, once the whole tile is fully given out — not
+  // one per click. Giving all 3 drinks from a Triple to one person should be
+  // a single "DRINK ASSIGNED" popup, not three stacked back-to-back.
   if (evt.assign.amount <= 0) {
+    const lines = Object.entries(evt.assign.given).map(([id, count]) =>
+      id === giverId
+        ? `${giverName} drinks ${count} themselves.`
+        : `${giverName} gives ${api.playerName(id)} ${count} drink${count > 1 ? "s" : ""}.`
+    );
+    api.addEvent({ type: "info", title: "🍺 DRINK ASSIGNED", lines });
     state.pendingEvents = state.pendingEvents.filter((e) => e.id !== eventId);
   }
 }

@@ -160,7 +160,14 @@ export interface GameEvent {
   title: string;
   lines: string[];
   /** Present only for "give a drink" tiles — the modal shows a player picker instead of Continue. */
-  assign?: { giverId: string; amount: number };
+  assign?: {
+    giverId: string;
+    amount: number;
+    /** Running tally of drinkerId -> count given so far this event, so the
+     * final confirmation can summarize all of them in one popup instead of
+     * popping a separate confirmation after every click. */
+    given?: Record<string, number>;
+  };
 }
 
 // ---- Log ------------------------------------------------------------------

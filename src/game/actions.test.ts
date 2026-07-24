@@ -87,6 +87,29 @@ describe("assignDrink action", () => {
     expect(state.pendingEvents).toHaveLength(1);
   });
 
+  it("giving all 3 drinks from a Triple tile to one person yields exactly ONE confirmation, not three", () => {
+    const state = stateWithAssignEvent(3);
+    applyAction(state, "assignDrink", { eventId: "evt1", drinkerId: "bob" }, Math.random);
+    applyAction(state, "assignDrink", { eventId: "evt1", drinkerId: "bob" }, Math.random);
+    applyAction(state, "assignDrink", { eventId: "evt1", drinkerId: "bob" }, Math.random);
+
+    const confirmations = state.pendingEvents.filter((e) => e.title === "🍺 DRINK ASSIGNED");
+    expect(confirmations).toHaveLength(1);
+    expect(confirmations[0].lines).toEqual(["Alice gives Bob 3 drinks."]);
+    expect(state.nemesis["alice->bob"]?.drinks).toBe(3);
+  });
+
+  it("splitting 3 drinks across two people summarizes both in one confirmation", () => {
+    const state = stateWithAssignEvent(3);
+    applyAction(state, "assignDrink", { eventId: "evt1", drinkerId: "bob" }, Math.random);
+    applyAction(state, "assignDrink", { eventId: "evt1", drinkerId: "carol" }, Math.random);
+    applyAction(state, "assignDrink", { eventId: "evt1", drinkerId: "bob" }, Math.random);
+
+    const confirmations = state.pendingEvents.filter((e) => e.title === "🍺 DRINK ASSIGNED");
+    expect(confirmations).toHaveLength(1);
+    expect(confirmations[0].lines).toEqual(["Alice gives Bob 2 drinks.", "Alice gives Carol 1 drink."]);
+  });
+
   it("targets by eventId, not array position — resolving one assign event leaves an unrelated one untouched", () => {
     // Two players each hit a drink tile before either resolves theirs — a
     // real possibility now that plain events no longer shift out from under
