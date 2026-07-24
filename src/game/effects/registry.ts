@@ -67,6 +67,8 @@ export interface ZoneDef {
   target?: ZoneTarget;
   /** App-spawnable Public Tile (not offered as a reward card). */
   wild?: boolean;
+  /** A drink-dispensing Public Tile — spawned via its own guaranteed-count pass, separate from the rest of the wild pool. */
+  drinkTile?: boolean;
   /** App-spawned Nemesis Tile — spawned once per round when any Nemesis exists. Never offered as a reward card. */
   nemesisTile?: boolean;
   /** Consumed after the first player hits it (one-shot visible tile). */
@@ -87,7 +89,7 @@ export interface GoldenDef {
 
 // ---- Chaos ----------------------------------------------------------------
 
-export type ChaosKind = "immediate" | "roundWide" | "spawnGolden";
+export type ChaosKind = "immediate" | "roundWide" | "spawnGolden" | "placeMines";
 
 export interface ChaosDef {
   id: string;
@@ -97,6 +99,8 @@ export interface ChaosDef {
   minRound?: number; // earliest round this can be selected
   /** Eligible for the chaos pool only once the winner has a Nemesis. */
   requiresNemesis?: boolean;
+  /** placeMines only: how many hidden mines the winner places (default 1). */
+  placementCount?: number;
 
   /** immediate + spawnGolden: resolved during the reward phase. */
   resolve?: (api: EffectAPI, winnerId: string) => void;
@@ -139,6 +143,10 @@ export const allZoneDefs = (): ZoneDef[] => Object.values(zoneRegistry);
 export const rewardZoneDefs = (): ZoneDef[] => Object.values(zoneRegistry).filter((z) => !z.wild && !z.nemesisTile);
 /** Zones that can be auto-spawned as public tiles each round. */
 export const wildZoneDefs = (): ZoneDef[] => Object.values(zoneRegistry).filter((z) => z.wild);
+/** The drink-dispensing subset of the wild pool — spawned via its own guaranteed count. */
+export const wildDrinkZoneDefs = (): ZoneDef[] => wildZoneDefs().filter((z) => z.drinkTile);
+/** The non-drink subset of the wild pool (bonus/hazard tiles). */
+export const wildOtherZoneDefs = (): ZoneDef[] => wildZoneDefs().filter((z) => !z.drinkTile);
 /** Zones that can be auto-spawned when a Nemesis relationship exists. */
 export const nemesisTileDefs = (): ZoneDef[] => Object.values(zoneRegistry).filter((z) => z.nemesisTile);
 export const allGoldenDefs = (): GoldenDef[] => Object.values(goldenRegistry);

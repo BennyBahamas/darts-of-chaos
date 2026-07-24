@@ -10,11 +10,8 @@ export const HEAT_PER_DRINK = 1;
 export const HEAT_PER_5_SCORE = 1;         // 1 heat per 5 pts of score damage
 export const HEAT_PER_DIRECT_ATTACK = 0.5;
 
-// Raised from 5/8: a single landmine hit alone (10 score dmg + 2 drinks + 1
-// direct attack = 4.5 heat) was nearly triggering a Nemesis on its own, so
-// one or two ordinary hits made a rivalry feel automatic rather than earned.
-export const NEMESIS_THRESHOLD = 8;         // heat required to qualify as a Nemesis
-const SHOWDOWN_HEAT_THRESHOLD = 12;         // heat required before a showdown can fire
+export const NEMESIS_THRESHOLD = 5;         // heat required to qualify as a Nemesis
+const SHOWDOWN_HEAT_THRESHOLD = 8;          // heat required before a showdown can fire
 const SHOWDOWN_CHANCE = 0.5;
 
 /** Compute the heat a single attacker→victim pair has accumulated. */

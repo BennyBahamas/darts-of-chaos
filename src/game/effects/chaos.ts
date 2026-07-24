@@ -397,6 +397,14 @@ const CHAOS: ChaosDef[] = [
     },
   },
 
+  {
+    id: "minefield",
+    name: "Minefield",
+    description: "Place 3 hidden mines anywhere on the board — pick your spots carefully.",
+    kind: "placeMines",
+    placementCount: 3,
+  },
+
   // ---- Nemesis chaos (only eligible once the winner has a Nemesis) ----------
   {
     id: "nemesisStrike",

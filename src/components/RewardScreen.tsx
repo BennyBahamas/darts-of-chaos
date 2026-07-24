@@ -4,6 +4,7 @@ import { useGame } from "@/store/gameStore";
 import { allPlaceableSegments, segmentLabel } from "@/game/darts";
 import { getChaosDef, getMineDef, getZoneDef } from "@/game/effects/registry";
 import type { CardType } from "@/game/types";
+import { DartboardPicker } from "./DartboardPicker";
 
 export function RewardScreen() {
   const game = useGame((s) => s.game);
@@ -41,7 +42,15 @@ export function RewardScreen() {
     chaos: { title: "Chaos", emoji: "🌀", blurb: "Random chaos effect chosen by the app. No placement." },
   };
 
-  const placingDef = reward.chosen === "mine" ? mineDef : zoneDef;
+  // The def actually being placed right now — `chosenDefId` (not the
+  // offer-time `mineDefId`/`zoneDefId` rolls above), since a chaos card like
+  // Minefield sets its own placement def(s) and can vary them per placement.
+  const placingDef =
+    reward.placementKind === "mine"
+      ? getMineDef(reward.chosenDefId ?? "")
+      : reward.placementKind === "zone"
+      ? getZoneDef(reward.chosenDefId ?? "")
+      : null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -73,11 +82,13 @@ export function RewardScreen() {
         </div>
       )}
 
-      {/* Step 2: placement for mine/zone */}
-      {reward.chosen && (reward.chosen === "mine" || reward.chosen === "zone") && !reward.resolved && (
+      {/* Step 2: placement for mine/zone (winner-chosen, or a chaos card that
+          triggers its own placement queue, e.g. Minefield) */}
+      {reward.needsPlacement && !reward.resolved && (
         <div className="card space-y-3">
           <div className="font-semibold">
-            Place your {placingDef?.name ?? (reward.chosen === "mine" ? "Mine" : "Zone")}
+            Place your {placingDef?.name ?? (reward.placementKind === "mine" ? "Mine" : "Zone")}
+            {reward.placementsRemaining > 1 && ` (${reward.placementsRemaining} to place)`}
           </div>
           <p className="text-xs text-slate-400">{placingDef?.description}</p>
 
@@ -87,9 +98,11 @@ export function RewardScreen() {
             </p>
           ) : (
             <>
+              <DartboardPicker value={reward.selectedSegment} onSelect={setRewardSegment} />
+
               <div className={reward.needsTarget ? "grid gap-3 sm:grid-cols-2" : "grid gap-3"}>
                 <label className="flex flex-col gap-1">
-                  <span className="label">Segment</span>
+                  <span className="label">Or choose from list</span>
                   <select
                     className="sel"
                     value={reward.selectedSegment ?? ""}

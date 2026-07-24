@@ -36,6 +36,8 @@ import {
   getZoneDef,
   rewardZoneDefs,
   wildZoneDefs,
+  wildDrinkZoneDefs,
+  wildOtherZoneDefs,
   nemesisTileDefs,
   type EffectAPI,
 } from "./effects/registry";
@@ -161,6 +163,7 @@ export function emptyGameState(): GameState {
     nemesis: {},
     showdown: null,
     showdownsCompleted: {},
+    chaosHistory: [],
     pendingEvents: [],
     log: [],
   };
@@ -370,6 +373,8 @@ export function buildReward(state: GameState, rng: () => number): RewardState {
     selectedTargetId: null,
     chaosDefId: null,
     resolved: false,
+    placementKind: null,
+    placementsRemaining: 1,
   };
 }
 
@@ -385,17 +390,25 @@ export function chooseCard(state: GameState, card: CardType, rng: () => number) 
   // mine / zone -> need a segment.
   reward.chosenDefId = card === "mine" ? reward.mineDefId : reward.zoneDefId;
   const zoneDef = card === "zone" ? getZoneDef(reward.chosenDefId) : null;
+  reward.placementKind = card;
+  reward.placementsRemaining = 1;
   reward.needsPlacement = true;
   // Reward zones target a chosen player; mines hit whoever steps on them.
   reward.needsTarget = card === "zone" && zoneDef?.target === "chosen";
   state.phase = "rewardPlacement";
 }
 
+/** Roll a random mine def id eligible for the reward's winner (Nemesis gate honored). */
+function pickMineDefForWinner(state: GameState, rng: () => number): string {
+  const winnerHasNemesis = state.reward ? hasNemesis(state.nemesis, state.reward.winnerId) : false;
+  return pickEligible(allMineDefs(), winnerHasNemesis, rng, "landmine");
+}
+
 function pickChaosDef(state: GameState, rng: () => number): string {
   const winnerHasNemesis = state.reward
     ? hasNemesis(state.nemesis, state.reward.winnerId)
     : false;
-  const pool = [
+  const eligible = [
     "tripleFever",
     "happyHour",
     "bullMadness",
@@ -420,11 +433,23 @@ function pickChaosDef(state: GameState, rng: () => number): string {
     "courtOfPublicOpinion",
     "skillIssue",
     "heroMoment",
+    "minefield",
   ]
     .map((id) => getChaosDef(id)!)
     .filter((d) => (d.minRound ?? 0) <= state.round)
     .filter((d) => !d.requiresNemesis || winnerHasNemesis);
-  return pool[Math.floor(rng() * pool.length)].id;
+
+  const recent = state.chaosHistory ?? [];
+  const pool = eligible.filter((d) => !recent.includes(d.id));
+  // If excluding the last 3 leaves nothing (small eligible pool early game), fall back
+  // to the full eligible set rather than crashing.
+  const finalPool = pool.length > 0 ? pool : eligible;
+  return finalPool[Math.floor(rng() * finalPool.length)].id;
+}
+
+/** Record a chaos pick so it's excluded from the next draw; keeps only the last 3. */
+function recordChaosPick(state: GameState, defId: string) {
+  state.chaosHistory = [...(state.chaosHistory ?? []), defId].slice(-3);
 }
 
 export function resolveChaosChoice(state: GameState, rng: () => number) {
@@ -433,6 +458,7 @@ export function resolveChaosChoice(state: GameState, rng: () => number) {
   const defId = pickChaosDef(state, rng);
   const def = getChaosDef(defId)!;
   reward.chaosDefId = defId;
+  recordChaosPick(state, defId);
 
   if (def.kind === "immediate") {
     def.resolve?.(api, reward.winnerId);
@@ -442,6 +468,21 @@ export function resolveChaosChoice(state: GameState, rng: () => number) {
     api.addEvent({ type: "chaos", title: `🌀 CHAOS — ${def.name}`, lines: [def.description] });
   } else if (def.kind === "spawnGolden") {
     spawnGolden(state, rng);
+  } else if (def.kind === "placeMines") {
+    const count = def.placementCount ?? 1;
+    reward.placementKind = "mine";
+    reward.placementsRemaining = count;
+    reward.chosenDefId = pickMineDefForWinner(state, rng);
+    reward.needsPlacement = true;
+    reward.needsTarget = false;
+    state.phase = "rewardPlacement";
+    api.log(`${api.playerName(reward.winnerId)} rolled ${def.name}: place ${count} hidden mines.`);
+    api.addEvent({
+      type: "chaos",
+      title: `🌀 CHAOS — ${def.name}`,
+      lines: [def.description, `Place ${count} hidden mines anywhere on the board.`],
+    });
+    return; // placement queue owns resolving `reward` now, not this function
   }
 
   reward.resolved = true;
@@ -451,26 +492,24 @@ export function resolveChaosChoice(state: GameState, rng: () => number) {
 
 /**
  * Public Tiles appear by themselves at the start of EVERY round (1..maxRounds),
- * drawn at random from the wild zone pool and placed on random open segments.
- * Golden becoming available after round 5 does NOT stop them.
+ * placed on random open segments. Golden becoming available after round 5
+ * does NOT stop them. Two pools, spawned separately so drink tiles are a
+ * guaranteed count rather than left to the luck of a shared random draw:
+ *   - a flat count of drink tiles (🍺/🍺2)
+ *   - a random-range count of the other bonus/hazard tiles
+ * Up to PUBLIC_DRINK_TILES + PUBLIC_OTHER_TILES_MAX (10) tiles per round.
  */
-export const PUBLIC_TILES_MIN = 4;
-export const PUBLIC_TILES_MAX = 6; // ~5 per round
+export const PUBLIC_DRINK_TILES = 5;
+export const PUBLIC_OTHER_TILES_MIN = 3;
+export const PUBLIC_OTHER_TILES_MAX = 5;
 
 export function spawnWildTiles(state: GameState, rng: () => number) {
-  const pool = wildZoneDefs();
-  if (pool.length === 0) return;
-
   // Open segments = placeable segments not already hosting an effect or golden.
   const taken = new Set<string>(state.placedEffects.map((e) => e.segment));
   if (state.goldenTile) taken.add(state.goldenTile.segment);
   const open = allPlaceableSegments().filter((s) => !taken.has(s));
 
-  const span = PUBLIC_TILES_MAX - PUBLIC_TILES_MIN + 1;
-  const count = Math.min(open.length, PUBLIC_TILES_MIN + Math.floor(rng() * span));
-
-  for (let i = 0; i < count; i++) {
-    const def = pool[Math.floor(rng() * pool.length)];
+  const place = (def: ReturnType<typeof wildZoneDefs>[number]) => {
     const segIdx = Math.floor(rng() * open.length);
     const segment = open.splice(segIdx, 1)[0];
     state.placedEffects.push({
@@ -484,13 +523,30 @@ export function spawnWildTiles(state: GameState, rng: () => number) {
       triggered: false,
     });
     state.log.push({ id: uid("log"), round: state.round, text: `Public Tile: ${def.name} on ${segment}.` });
+  };
+
+  const drinkPool = wildDrinkZoneDefs();
+  let drinkCount = 0;
+  if (drinkPool.length > 0) {
+    drinkCount = Math.min(open.length, PUBLIC_DRINK_TILES);
+    for (let i = 0; i < drinkCount; i++) place(drinkPool[Math.floor(rng() * drinkPool.length)]);
   }
-  if (count > 0) {
+
+  const otherPool = wildOtherZoneDefs();
+  let otherCount = 0;
+  if (otherPool.length > 0) {
+    const span = PUBLIC_OTHER_TILES_MAX - PUBLIC_OTHER_TILES_MIN + 1;
+    otherCount = Math.min(open.length, PUBLIC_OTHER_TILES_MIN + Math.floor(rng() * span));
+    for (let i = 0; i < otherCount; i++) place(otherPool[Math.floor(rng() * otherPool.length)]);
+  }
+
+  const total = drinkCount + otherCount;
+  if (total > 0) {
     pushEvent(state, {
       type: "info",
       title: "✨ PUBLIC TILES",
       lines: [
-        `${count} Public Tiles appeared on the board this round.`,
+        `${total} Public Tiles appeared on the board this round (${drinkCount} drink tiles).`,
         "Check the board before you throw.",
       ],
     });
@@ -581,11 +637,12 @@ function maybeNaturalGolden(state: GameState, rng: () => number) {
   });
 }
 
-/** Finalize a mine/zone placement chosen by the winner. */
-export function confirmPlacement(state: GameState) {
+/** Finalize one mine/zone placement. Loops back into rewardPlacement instead of
+ * resolving when the card owes more than one placement (e.g. Minefield). */
+export function confirmPlacement(state: GameState, rng: () => number) {
   const reward = state.reward!;
   const seg = reward.selectedSegment!;
-  const kind = reward.chosen === "mine" ? "mine" : "zone";
+  const kind = reward.placementKind ?? (reward.chosen === "mine" ? "mine" : "zone");
   const defId = reward.chosenDefId ?? (kind === "mine" ? "landmine" : "curseDrink1");
   const def = kind === "mine" ? getMineDef(defId) : getZoneDef(defId);
 
@@ -611,7 +668,16 @@ export function confirmPlacement(state: GameState) {
       text: `${state.players.find((p) => p.id === reward.winnerId)?.name} placed ${label} on ${seg}.`,
     });
   }
-  reward.resolved = true;
+
+  reward.placementsRemaining = Math.max(0, (reward.placementsRemaining ?? 1) - 1);
+  if (reward.placementsRemaining > 0) {
+    reward.selectedSegment = null;
+    reward.selectedTargetId = null;
+    // Vary flavor across a multi-mine card's placements instead of hiding 3 of the same mine.
+    if (kind === "mine") reward.chosenDefId = pickMineDefForWinner(state, rng);
+  } else {
+    reward.resolved = true;
+  }
 }
 
 // ---- drink assignment (Give a Drink / Give 2 Drinks public tiles) ---------

@@ -89,6 +89,17 @@ export interface RewardState {
   selectedTargetId: string | null;
   chaosDefId: string | null; // randomly chosen chaos effect id
   resolved: boolean;
+
+  /**
+   * What confirmPlacement should create right now. Set for both a winner-chosen
+   * mine/zone card AND a chaos card that triggers its own placement (e.g.
+   * Minefield) — RewardScreen renders the placement step off this, not `chosen`,
+   * since `chosen` stays "chaos" for the latter.
+   */
+  placementKind: "mine" | "zone" | null;
+  /** Placements still owed on the current card; >1 loops confirmPlacement back
+   * into rewardPlacement instead of resolving (e.g. Minefield's 3 mines). */
+  placementsRemaining: number;
 }
 
 // ---- Round results --------------------------------------------------------
@@ -196,6 +207,8 @@ export interface GameState {
   nemesis: NemesisStats;
   showdown: ShowdownState | null;
   showdownsCompleted: Record<string, boolean>; // canonical pair key -> true; prevents repeat showdowns
+
+  chaosHistory: string[]; // last 3 chaos def ids picked, most recent last; excluded from the next pick
 
   pendingEvents: GameEvent[]; // FIFO queue rendered by the event modal
   log: LogEntry[];

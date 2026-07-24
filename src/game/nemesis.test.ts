@@ -3,42 +3,42 @@ import { credit, heatOf, nemesisOf, NEMESIS_THRESHOLD } from "./nemesis";
 import type { NemesisStats } from "./types";
 
 describe("heat-based Nemesis model", () => {
-  it("score-only damage (40 pts = 8 heat) creates a Nemesis at the threshold", () => {
+  it("score-only damage (25 pts = 5 heat) creates a Nemesis at the threshold", () => {
     const stats: NemesisStats = {};
-    credit(stats, "attacker", "victim", { scoreDamage: 40 });
+    credit(stats, "attacker", "victim", { scoreDamage: 25 });
     const result = nemesisOf(stats, "victim");
     expect(result).not.toBeNull();
     expect(result?.attackerId).toBe("attacker");
     expect(result?.heat).toBe(NEMESIS_THRESHOLD);
   });
 
-  it("35 pts score damage (7 heat) does not reach the threshold", () => {
+  it("20 pts score damage (4 heat) does not reach the threshold", () => {
     const stats: NemesisStats = {};
-    credit(stats, "attacker", "victim", { scoreDamage: 35 });
+    credit(stats, "attacker", "victim", { scoreDamage: 20 });
     expect(nemesisOf(stats, "victim")).toBeNull();
   });
 
-  it("drinks alone: 8 drinks = 8 heat = threshold", () => {
+  it("drinks alone: 5 drinks = 5 heat = threshold", () => {
     const stats: NemesisStats = {};
-    credit(stats, "attacker", "victim", { drinks: 8 });
+    credit(stats, "attacker", "victim", { drinks: 5 });
     expect(nemesisOf(stats, "victim")).not.toBeNull();
   });
 
-  it("direct attacks alone: 16 attacks × 0.5 = 8 heat = threshold", () => {
+  it("direct attacks alone: 10 attacks × 0.5 = 5 heat = threshold", () => {
     const stats: NemesisStats = {};
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 10; i++) {
       credit(stats, "attacker", "victim", { directAttack: true });
     }
     expect(nemesisOf(stats, "victim")).not.toBeNull();
   });
 
   it("heat combines all three components correctly", () => {
-    // 3 drinks (3) + 20 pts (4) + 1 attack (0.5) = 7.5 — just below threshold
+    // 1 drink (1) + 15 pts (3) + 1 attack (0.5) = 4.5 — just below threshold
     const stats: NemesisStats = {};
-    credit(stats, "attacker", "victim", { drinks: 3, scoreDamage: 20, directAttack: true });
+    credit(stats, "attacker", "victim", { drinks: 1, scoreDamage: 15, directAttack: true });
     expect(nemesisOf(stats, "victim")).toBeNull();
 
-    // push over with one more drink → 8.5 heat
+    // push over with one more drink → 5.5 heat
     credit(stats, "attacker", "victim", { drinks: 1 });
     expect(nemesisOf(stats, "victim")).not.toBeNull();
   });

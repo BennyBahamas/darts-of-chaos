@@ -268,7 +268,15 @@ export const useGame = create<GameStore>()(
             host,
             roomCode,
             deviceId,
-            onStatusChange: (status) => set({ connectionStatus: status }),
+            // Fires on the initial connect AND every auto-reconnect (e.g. after
+            // a phone's screen sleep drops the socket). Re-sending JOIN each
+            // time is what keeps the lobby's `connected` flag (and thus seat/
+            // host state) in sync without requiring a manual page refresh —
+            // handleJoin on the server is idempotent, so this is safe to repeat.
+            onStatusChange: (status) => {
+              set({ connectionStatus: status });
+              if (status === "open") roomClient?.send({ kind: "JOIN", deviceId, name });
+            },
             onState: (msg: ServerMessage) => {
               if (msg.kind === "ERROR") {
                 console.warn("Room error:", msg.message);
@@ -289,7 +297,6 @@ export const useGame = create<GameStore>()(
               }));
             },
           });
-          roomClient.send({ kind: "JOIN", deviceId, name });
         },
 
         leaveOnline: () => {
@@ -321,7 +328,7 @@ export const useGame = create<GameStore>()(
       name: "darts-of-chaos",
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({ game: s.game }),
-      version: 2,
+      version: 3,
       // Backfill fields added after a save was written so older in-progress
       // games rehydrate cleanly instead of crashing on undefined arrays.
       migrate: (persisted: any) => {
@@ -331,6 +338,7 @@ export const useGame = create<GameStore>()(
           g.pendingAfflictions ??= [];
           g.roundScoreBonus ??= {};
           g.showdownsCompleted ??= {};
+          g.chaosHistory ??= [];
         }
         return persisted;
       },

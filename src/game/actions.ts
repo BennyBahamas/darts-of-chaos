@@ -111,8 +111,10 @@ export function applyAction(state: GameState, action: ActionName, payload: unkno
     case "confirmPlacement": {
       if (!state.reward || !state.reward.selectedSegment) return;
       if (state.reward.needsTarget && !state.reward.selectedTargetId) return;
-      engineConfirmPlacement(state);
-      state.phase = "reward";
+      engineConfirmPlacement(state, rng);
+      // Multi-placement chaos cards (e.g. Minefield) stay in rewardPlacement
+      // for the next mine instead of resolving after the first.
+      state.phase = state.reward.resolved ? "reward" : "rewardPlacement";
       return;
     }
     case "finishReward": {

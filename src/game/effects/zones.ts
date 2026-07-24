@@ -134,6 +134,7 @@ const ZONES: ZoneDef[] = [
     description: "Public Tile. Anyone who hits this segment gets to give 1 drink to any player they choose (including themselves).",
     badge: "🍺",
     wild: true,
+    drinkTile: true,
     onTrigger: (api, { victimId }) => {
       api.addEvent({
         type: "info",
@@ -151,6 +152,7 @@ const ZONES: ZoneDef[] = [
       "Public Tile. Anyone who hits this segment gets to give out 2 drinks, one at a time — to the same player twice, split between two different players, or to themselves.",
     badge: "🍺2",
     wild: true,
+    drinkTile: true,
     onTrigger: (api, { victimId }) => {
       api.addEvent({
         type: "info",
