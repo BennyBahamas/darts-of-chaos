@@ -5,6 +5,7 @@ import "./effects/zones"; // registers zone defs into the registry (needed for P
 import {
   confirmPlacement,
   emptyGameState,
+  PUBLIC_DRINK_MIN_SINGLE,
   PUBLIC_DRINK_TILES,
   PUBLIC_OTHER_TILES_MAX,
   PUBLIC_OTHER_TILES_MIN,
@@ -115,8 +116,8 @@ describe("Public Tile spawn", () => {
     ];
     spawnWildTiles(state, Math.random);
 
-    const drinkTiles = state.placedEffects.filter((e) => e.defId === "pubDrink1" || e.defId === "pubDrink2");
-    const otherTiles = state.placedEffects.filter((e) => e.defId !== "pubDrink1" && e.defId !== "pubDrink2");
+    const drinkTiles = state.placedEffects.filter((e) => e.defId === "pubDrink");
+    const otherTiles = state.placedEffects.filter((e) => e.defId !== "pubDrink");
 
     expect(drinkTiles).toHaveLength(PUBLIC_DRINK_TILES);
     expect(otherTiles.length).toBeGreaterThanOrEqual(PUBLIC_OTHER_TILES_MIN);
@@ -125,5 +126,18 @@ describe("Public Tile spawn", () => {
     // No two tiles share a segment.
     const segments = state.placedEffects.map((e) => e.segment);
     expect(new Set(segments).size).toBe(segments.length);
+  });
+
+  it("puts at least PUBLIC_DRINK_MIN_SINGLE of the drink tiles on a Single segment", () => {
+    const state = emptyGameState();
+    state.players = [
+      { id: "alice", name: "Alice", totalScore: 0 },
+      { id: "bob", name: "Bob", totalScore: 0 },
+    ];
+    spawnWildTiles(state, Math.random);
+
+    const drinkTiles = state.placedEffects.filter((e) => e.defId === "pubDrink");
+    const onSingle = drinkTiles.filter((e) => e.segment.startsWith("S"));
+    expect(onSingle.length).toBeGreaterThanOrEqual(PUBLIC_DRINK_MIN_SINGLE);
   });
 });

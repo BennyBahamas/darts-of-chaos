@@ -2,7 +2,7 @@
 
 import { useGame } from "@/store/gameStore";
 import { getGoldenDef, getZoneDef } from "@/game/effects/registry";
-import { CX, CY, ORDER, R, WEDGE, parseSegment, pt, ringRadii, sector } from "./boardGeometry";
+import { CX, CY, ORDER, R, WEDGE, parseSegment, pt, ringRadii, sector, segmentBands } from "./boardGeometry";
 
 // ============================================================================
 // A deliberately simple visual dartboard. Its ONLY job is to communicate where
@@ -15,7 +15,7 @@ import { CX, CY, ORDER, R, WEDGE, parseSegment, pt, ringRadii, sector } from "./
 
 interface Marker {
   key: string;
-  path?: string; // wedge ring highlight (S/D/T)
+  paths?: string[]; // wedge ring highlight(s) (S/D/T) — Single has 2 (inner + outer band)
   circle?: { r: number }; // bull highlight (OB/IB)
   bx: number;
   by: number;
@@ -28,18 +28,22 @@ function markerFor(seg: string, badge: string, color: string, title: string, key
   const parsed = parseSegment(seg);
   if (!parsed) return null;
   const { ring, number } = parsed;
-  const [rI, rO] = ringRadii(ring);
-  const mid = (rI + rO) / 2;
 
   if (ring === "IB" || ring === "OB") {
+    const [, rO] = ringRadii(ring);
     const [bx, by] = ring === "IB" ? [CX, CY] : pt(R.obOuter - 3, -30);
     return { key, circle: { r: rO }, bx, by, badge, color, title };
   }
 
   const i = ORDER.indexOf(number!);
   const center = i * WEDGE;
-  const [bx, by] = pt(mid, center);
-  return { key, path: sector(rI, rO, center - WEDGE / 2, center + WEDGE / 2), bx, by, badge, color, title };
+  const bands = segmentBands(ring);
+  const paths = bands.map(([rI, rO]) => sector(rI, rO, center - WEDGE / 2, center + WEDGE / 2));
+  // Anchor the badge at the outer-most band's midpoint (the only band for D/T; the
+  // less cluttered, closer-to-the-edge one for Single, which has two bands).
+  const [rI, rO] = bands[bands.length - 1];
+  const [bx, by] = pt((rI + rO) / 2, center);
+  return { key, paths, bx, by, badge, color, title };
 }
 
 export function Dartboard() {
@@ -118,7 +122,9 @@ export function Dartboard() {
         {markers.map((m) => (
           <g key={m.key}>
             <title>{m.title}</title>
-            {m.path && <path d={m.path} fill={m.color} fillOpacity={0.55} stroke={m.color} strokeWidth={1} />}
+            {m.paths?.map((d, i) => (
+              <path key={i} d={d} fill={m.color} fillOpacity={0.55} stroke={m.color} strokeWidth={1} />
+            ))}
             {m.circle && (
               <circle cx={CX} cy={CY} r={m.circle.r} fill={m.color} fillOpacity={0.55} stroke={m.color} strokeWidth={1} />
             )}

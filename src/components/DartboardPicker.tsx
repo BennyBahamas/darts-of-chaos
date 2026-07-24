@@ -2,7 +2,7 @@
 
 import { segmentLabel } from "@/game/darts";
 import type { SegmentKey } from "@/game/types";
-import { CX, CY, ORDER, R, WEDGE, pt, ringRadii, sector } from "./boardGeometry";
+import { CX, CY, ORDER, R, WEDGE, pt, segmentBands, sector } from "./boardGeometry";
 
 // ============================================================================
 // Tappable dartboard for reward placement: pick a segment by tapping its wedge
@@ -21,14 +21,19 @@ interface DartboardPickerProps {
 }
 
 export function DartboardPicker({ value, onSelect }: DartboardPickerProps) {
+  // Single wedges get TWO tap-target paths (inner + outer band, split by the
+  // Triple ring) so the whole Single area is tappable, not just one sliver of it.
   const wedgeTargets = ORDER.flatMap((num, i) => {
     const center = i * WEDGE;
     const a0 = center - WEDGE / 2;
     const a1 = center + WEDGE / 2;
-    return (["S", "D", "T"] as const).map((ring) => {
-      const [rI, rO] = ringRadii(ring);
-      return { seg: `${ring}${num}`, path: sector(rI, rO, a0, a1) };
-    });
+    return (["S", "D", "T"] as const).flatMap((ring) =>
+      segmentBands(ring).map(([rI, rO], bandIndex) => ({
+        key: `${ring}${num}-${bandIndex}`,
+        seg: `${ring}${num}`,
+        path: sector(rI, rO, a0, a1),
+      }))
+    );
   });
 
   const baseWedges = ORDER.map((num, i) => {
@@ -64,12 +69,12 @@ export function DartboardPicker({ value, onSelect }: DartboardPickerProps) {
           );
         })}
 
-        {/* Tap targets for the 60 single/double/triple wedges */}
-        {wedgeTargets.map(({ seg, path }) => {
+        {/* Tap targets for the 60 single/double/triple wedges (Singles get 2 each) */}
+        {wedgeTargets.map(({ key, seg, path }) => {
           const selected = value === seg;
           return (
             <path
-              key={seg}
+              key={key}
               d={path}
               fill={selected ? HIGHLIGHT : "transparent"}
               fillOpacity={selected ? 0.55 : 0}

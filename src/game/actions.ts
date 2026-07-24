@@ -39,6 +39,7 @@ export type ActionName =
   | "resolveShowdown"
   | "finishShowdown"
   | "dismissEvent"
+  | "dismissAllEvents"
   | "assignDrink";
 
 export interface ActionPayloads {
@@ -55,6 +56,7 @@ export interface ActionPayloads {
   finishShowdown: undefined;
   assignDrink: { eventId: string; drinkerId: string };
   dismissEvent: undefined;
+  dismissAllEvents: undefined;
 }
 
 let idc = 0;
@@ -144,6 +146,12 @@ export function applyAction(state: GameState, action: ActionName, payload: unkno
     }
     case "dismissEvent": {
       state.pendingEvents.shift();
+      return;
+    }
+    case "dismissAllEvents": {
+      // Keep "give a drink" events — those still owe real drinks and need
+      // someone to actually pick a recipient, not just get swept away.
+      state.pendingEvents = state.pendingEvents.filter((e) => e.assign);
       return;
     }
     case "assignDrink": {

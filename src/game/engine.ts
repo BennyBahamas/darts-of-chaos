@@ -495,11 +495,14 @@ export function resolveChaosChoice(state: GameState, rng: () => number) {
  * placed on random open segments. Golden becoming available after round 5
  * does NOT stop them. Two pools, spawned separately so drink tiles are a
  * guaranteed count rather than left to the luck of a shared random draw:
- *   - a flat count of drink tiles (🍺/🍺2)
+ *   - a flat count of drink tiles (amount is 1/2/3 depending on the Single/
+ *     Double/Triple ring it lands on — see pubDrink's onTrigger), at least
+ *     PUBLIC_DRINK_MIN_SINGLE of which are forced onto Single segments
  *   - a random-range count of the other bonus/hazard tiles
  * Up to PUBLIC_DRINK_TILES + PUBLIC_OTHER_TILES_MAX (10) tiles per round.
  */
 export const PUBLIC_DRINK_TILES = 5;
+export const PUBLIC_DRINK_MIN_SINGLE = 3; // of the drink tiles, at least this many land on a Single
 export const PUBLIC_OTHER_TILES_MIN = 3;
 export const PUBLIC_OTHER_TILES_MAX = 5;
 
@@ -509,9 +512,16 @@ export function spawnWildTiles(state: GameState, rng: () => number) {
   if (state.goldenTile) taken.add(state.goldenTile.segment);
   const open = allPlaceableSegments().filter((s) => !taken.has(s));
 
-  const place = (def: ReturnType<typeof wildZoneDefs>[number]) => {
-    const segIdx = Math.floor(rng() * open.length);
-    const segment = open.splice(segIdx, 1)[0];
+  /** Pop a random open segment matching `predicate` (default: any), removing it from `open`. */
+  const takeSegment = (predicate: (s: string) => boolean = () => true): string | null => {
+    const candidates = open.filter(predicate);
+    if (candidates.length === 0) return null;
+    const segment = candidates[Math.floor(rng() * candidates.length)];
+    open.splice(open.indexOf(segment), 1);
+    return segment;
+  };
+
+  const placeAt = (segment: string, def: ReturnType<typeof wildZoneDefs>[number]) => {
     state.placedEffects.push({
       id: uid("pub"),
       kind: "zone",
@@ -525,11 +535,28 @@ export function spawnWildTiles(state: GameState, rng: () => number) {
     state.log.push({ id: uid("log"), round: state.round, text: `Public Tile: ${def.name} on ${segment}.` });
   };
 
+  const place = (def: ReturnType<typeof wildZoneDefs>[number]) => {
+    const segment = takeSegment();
+    if (segment) placeAt(segment, def);
+  };
+
   const drinkPool = wildDrinkZoneDefs();
   let drinkCount = 0;
   if (drinkPool.length > 0) {
-    drinkCount = Math.min(open.length, PUBLIC_DRINK_TILES);
-    for (let i = 0; i < drinkCount; i++) place(drinkPool[Math.floor(rng() * drinkPool.length)]);
+    const totalDrink = Math.min(open.length, PUBLIC_DRINK_TILES);
+    const minSingle = Math.min(PUBLIC_DRINK_MIN_SINGLE, totalDrink);
+    for (let i = 0; i < minSingle; i++) {
+      const segment = takeSegment((s) => s.startsWith("S"));
+      if (!segment) break; // ran out of open Singles — shouldn't happen in practice
+      placeAt(segment, drinkPool[Math.floor(rng() * drinkPool.length)]);
+      drinkCount++;
+    }
+    for (let i = drinkCount; i < totalDrink; i++) {
+      const segment = takeSegment();
+      if (!segment) break;
+      placeAt(segment, drinkPool[Math.floor(rng() * drinkPool.length)]);
+      drinkCount++;
+    }
   }
 
   const otherPool = wildOtherZoneDefs();

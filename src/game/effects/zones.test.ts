@@ -12,6 +12,19 @@ function stateWithNemesisTile(defId: string, segment: string): GameState {
   return state;
 }
 
+describe("pubDrink amount matches the ring it lands on", () => {
+  it.each([
+    ["S1", 1],
+    ["D1", 2],
+    ["T1", 3],
+  ])("gives %s -> %i drink(s)", (segment, expected) => {
+    const state = stateWithNemesisTile("pubDrink", segment);
+    applyTurn(state, "alice", [segment, "MISS", "MISS"], Math.random);
+    const evt = state.pendingEvents.find((e) => e.assign);
+    expect(evt?.assign?.amount).toBe(expected);
+  });
+});
+
 describe("Nemesis Tiles are one-shot", () => {
   it("nemesisDrain is removed after a single hit even when it fizzles (hitter has no Nemesis)", () => {
     const state = stateWithNemesisTile("nemesisDrain", "T14");

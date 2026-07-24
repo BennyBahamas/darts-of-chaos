@@ -110,3 +110,20 @@ describe("assignDrink action", () => {
     expect(state.nemesis["bob->carol"]?.drinks).toBe(1);
   });
 });
+
+describe("dismissAllEvents action", () => {
+  it("clears plain info events but leaves drink-assign events pending", () => {
+    const state = emptyGameState();
+    state.players = [{ id: "alice", name: "Alice", totalScore: 0 }];
+    state.pendingEvents = [
+      { id: "evt1", type: "info", title: "✨ PUBLIC TILE", lines: [] },
+      { id: "evt2", type: "mine", title: "💣 MINE REVEALED", lines: [] },
+      { id: "evt3", type: "info", title: "🍺 GIVE A DRINK", lines: [], assign: { giverId: "alice", amount: 1 } },
+    ];
+
+    applyAction(state, "dismissAllEvents", undefined, Math.random);
+
+    expect(state.pendingEvents).toHaveLength(1);
+    expect(state.pendingEvents[0].id).toBe("evt3");
+  });
+});

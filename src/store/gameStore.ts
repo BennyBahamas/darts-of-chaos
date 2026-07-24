@@ -87,6 +87,7 @@ interface GameStore {
 
   // events
   dismissEvent: (eventId?: string) => void;
+  dismissAllEvents: () => void;
   assignDrink: (eventId: string, drinkerId: string) => void;
 
   // lifecycle
@@ -217,6 +218,22 @@ export const useGame = create<GameStore>()(
             return;
           }
           apply((g) => applyAction(g, "dismissEvent", undefined, rng));
+        },
+
+        // Same per-device-local semantics as dismissEvent above, just bulk —
+        // keeps "give a drink" events in place since those still owe real
+        // drinks and need someone to actually pick a recipient.
+        dismissAllEvents: () => {
+          if (get().mode === "online") {
+            const idsToDismiss = get()
+              .game.pendingEvents.filter((e) => !e.assign)
+              .map((e) => e.id);
+            if (idsToDismiss.length > 0) {
+              set((store) => ({ dismissedEventIds: [...new Set([...store.dismissedEventIds, ...idsToDismiss])] }));
+            }
+            return;
+          }
+          apply((g) => applyAction(g, "dismissAllEvents", undefined, rng));
         },
 
         assignDrink: (eventId, drinkerId) =>

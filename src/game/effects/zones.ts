@@ -129,38 +129,22 @@ const ZONES: ZoneDef[] = [
   // Public Tiles — app-spawned every round, hit by ANYONE (target: "hitter").
   // ==========================================================================
   {
-    id: "pubDrink1",
+    id: "pubDrink",
     name: "Give a Drink",
-    description: "Public Tile. Anyone who hits this segment gets to give 1 drink to any player they choose (including themselves).",
+    description:
+      "Public Tile. Anyone who hits this segment gets to give out drinks, one at a time, to any player(s) they choose (including themselves) — 1 on a Single, 2 on a Double, always 3 on a Triple.",
     badge: "🍺",
     wild: true,
     drinkTile: true,
-    onTrigger: (api, { victimId }) => {
+    onTrigger: (api, { effect, victimId }) => {
+      const amount = segmentMultiplier(effect.segment);
       api.addEvent({
         type: "info",
-        title: "🍺 GIVE A DRINK",
-        lines: [`${api.playerName(victimId)} gets to give 1 drink.`],
-        assign: { giverId: victimId, amount: 1 },
+        title: amount > 1 ? `🍺 GIVE ${amount} DRINKS` : "🍺 GIVE A DRINK",
+        lines: [`${api.playerName(victimId)} gets to give ${amount} drink${amount > 1 ? "s" : ""}.`],
+        assign: { giverId: victimId, amount },
       });
-      api.log(`${api.playerName(victimId)} hit a Give a Drink tile.`);
-    },
-  },
-  {
-    id: "pubDrink2",
-    name: "Give 2 Drinks",
-    description:
-      "Public Tile. Anyone who hits this segment gets to give out 2 drinks, one at a time — to the same player twice, split between two different players, or to themselves.",
-    badge: "🍺2",
-    wild: true,
-    drinkTile: true,
-    onTrigger: (api, { victimId }) => {
-      api.addEvent({
-        type: "info",
-        title: "🍺 GIVE 2 DRINKS",
-        lines: [`${api.playerName(victimId)} gets to give out 2 drinks, one at a time.`],
-        assign: { giverId: victimId, amount: 2 },
-      });
-      api.log(`${api.playerName(victimId)} hit a Give 2 Drinks tile.`);
+      api.log(`${api.playerName(victimId)} hit a drink tile on ${effect.segment}: gives ${amount} drink${amount > 1 ? "s" : ""}.`);
     },
   },
   {

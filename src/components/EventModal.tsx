@@ -19,6 +19,7 @@ export function EventModal() {
   const myPlayerId = useGame((s) => s.myPlayerId);
   const dismissedEventIds = useGame((s) => s.dismissedEventIds);
   const dismiss = useGame((s) => s.dismissEvent);
+  const dismissAll = useGame((s) => s.dismissAllEvents);
   const assignDrink = useGame((s) => s.assignDrink);
 
   // In online mode, dismissal is per-device (see gameStore.ts's dismissEvent)
@@ -30,6 +31,9 @@ export function EventModal() {
   const visibleEvents = game.pendingEvents.filter((e) => !dismissedEventIds.includes(e.id));
   const evt = visibleEvents[0];
   const assign = evt?.assign;
+  // "Give a drink" events aren't included — those still owe real drinks and
+  // need someone to actually pick a recipient, not just get swept away.
+  const dismissableCount = visibleEvents.filter((e) => !e.assign).length;
 
   // A "Give N Drinks" tile resolves one drink per click and stays open until
   // fully given out (see engine.ts's assignDrink), so the same picker can be
@@ -101,6 +105,12 @@ export function EventModal() {
         {!assign && (
           <button className="btn-primary mt-6 w-full" onClick={() => dismiss(evt.id)}>
             Continue
+          </button>
+        )}
+
+        {dismissableCount > 1 && (
+          <button className="btn-ghost mt-2 w-full text-sm" onClick={dismissAll}>
+            Dismiss all ({dismissableCount})
           </button>
         )}
 

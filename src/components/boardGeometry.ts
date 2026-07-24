@@ -51,6 +51,18 @@ export function ringRadii(ring: Ring): [number, number] {
   }
 }
 
+/**
+ * Radius bands a ring occupies. A Single on a real board is actually TWO
+ * separate bands (inner single, between the bull and the Triple ring; and
+ * outer single, between the Triple ring and the Double ring) — both count as
+ * the same segment, so callers that draw/hit-test a Single must cover both,
+ * not just one sliver of it.
+ */
+export function segmentBands(ring: Ring): [number, number][] {
+  if (ring === "S") return [[R.obOuter, R.innerSingleOuter], [R.tripleOuter, R.outerSingleOuter]];
+  return [ringRadii(ring)];
+}
+
 export function parseSegment(seg: string): { ring: Ring; number: number | null } | null {
   if (seg === "OB") return { ring: "OB", number: null };
   if (seg === "IB") return { ring: "IB", number: null };

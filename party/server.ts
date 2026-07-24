@@ -91,6 +91,7 @@ function authorize(
         ? null
         : "Not your showdown.";
     case "dismissEvent":
+    case "dismissAllEvents":
       return null;
     case "assignDrink": {
       // Target by eventId, not array position — a device may have other,
